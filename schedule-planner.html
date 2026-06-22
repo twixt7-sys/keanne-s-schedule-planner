@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Course Schedule Planner</title>
+  <style>
+    :root {
+      --header-h: 88px;
+      --sidebar-w: 340px;
+      --bg: #140c12;
+      --bg2: #1f1219;
+      --surface: #2a1824;
+      --surface2: #3a2234;
+      --border: #5a3550;
+      --text: #fce7f3;
+      --muted: #c4a0b4;
+      --accent: #ff6eb4;
+      --accent-dim: #e84d9a;
+      --accent-glow: rgba(255, 110, 180, 0.22);
+      --success: #ff9ed2;
+      --warning: #ffb86c;
+      --danger: #ff6b8a;
+      --mth: #d896ff;
+      --tf: #ff85c8;
+      --mth-bg: rgba(216, 150, 255, 0.22);
+      --tf-bg: rgba(255, 133, 200, 0.22);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(255, 110, 180, 0.18), transparent),
+        radial-gradient(ellipse 60% 40% at 90% 100%, rgba(216, 150, 255, 0.12), transparent);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 200;
+      height: var(--header-h);
+      background: linear-gradient(135deg, #4a2040 0%, #2a1524 55%, #140c12 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 2rem;
+      box-shadow: 0 4px 24px rgba(255, 110, 180, 0.08);
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #fff 0%, #ffb8dc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p { color: var(--muted); margin-top: 0.35rem; font-size: 0.95rem; }
+
+    main {
+      display: block;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: fixed;
+      top: var(--header-h);
+      left: 0;
+      width: var(--sidebar-w);
+      height: calc(100vh - var(--header-h));
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 1.25rem;
+      overflow-y: auto;
+      overflow-x: hidden;
+      z-index: 150;
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent-dim) var(--surface2);
+    }
+
+    .sidebar::-webkit-scrollbar { width: 6px; }
+    .sidebar::-webkit-scrollbar-track { background: var(--surface2); }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 3px; }
+
+    .content {
+      margin-left: var(--sidebar-w);
+      margin-top: var(--header-h);
+      min-height: calc(100vh - var(--header-h));
+      padding: 1.25rem 1.5rem 2rem;
+    }
+
+    main.combos-expanded .sidebar {
+      transform: translateX(-100%);
+      pointer-events: none;
+    }
+
+    main.combos-expanded .content {
+      margin-left: 0;
+    }
+
+    @media (max-width: 900px) {
+      :root { --sidebar-w: 300px; }
+      .content { padding: 1rem; }
+    }
+
+    @media (max-width: 700px) {
+      :root {
+        --sidebar-w: 100%;
+        --header-h: 80px;
+      }
+
+      .sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 42vh;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      }
+
+      .content {
+        margin-left: 0;
+        margin-top: calc(var(--header-h) + 42vh);
+        min-height: auto;
+      }
+
+      main.combos-expanded .sidebar {
+        transform: none;
+        pointer-events: auto;
+        display: none;
+      }
+
+      main.combos-expanded .content {
+        margin-top: var(--header-h);
+      }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 4px 20px rgba(255, 110, 180, 0.06);
+    }
+
+    .panel h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .subject-group {
+      margin-bottom: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .subject-header {
+      background: linear-gradient(90deg, var(--surface2) 0%, rgba(255, 110, 180, 0.12) 100%);
+      padding: 0.55rem 0.75rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .subject-header .count {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .section-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      padding: 0.6rem 0.75rem;
+      border-top: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .section-option:hover { background: var(--accent-glow); }
+    .section-option.selected { background: rgba(255, 110, 180, 0.2); }
+    .section-option.conflict { background: rgba(255, 107, 138, 0.18); }
+    .section-option input { margin-top: 0.2rem; accent-color: var(--accent); }
+
+    .section-info { flex: 1; font-size: 0.85rem; }
+    .section-info .sec-label { font-weight: 600; }
+    .section-info .meta { color: var(--muted); font-size: 0.78rem; margin-top: 0.15rem; }
+
+    .day-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      margin-right: 0.3rem;
+    }
+    .day-badge.mth { background: var(--mth-bg); color: var(--mth); }
+    .day-badge.tf { background: var(--tf-bg); color: var(--tf); }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      position: sticky;
+      top: var(--header-h);
+      z-index: 40;
+      background: var(--bg);
+      padding: 0.5rem 0;
+      margin-top: -0.5rem;
+    }
+
+    button, .btn {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    button:hover { border-color: var(--accent); background: rgba(255, 110, 180, 0.1); }
+    button.primary {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+      border-color: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(255, 110, 180, 0.35);
+    }
+    button.primary:hover {
+      background: linear-gradient(135deg, #ff85c8 0%, var(--accent-dim) 100%);
+      box-shadow: 0 4px 16px rgba(255, 110, 180, 0.45);
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .stat {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      min-width: 120px;
+    }
+
+    .stat .val { font-size: 1.4rem; font-weight: 700; }
+    .stat .lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .stat.ok .val { color: var(--success); }
+    .stat.warn .val { color: var(--warning); }
+    .stat.bad .val { color: var(--danger); }
+
+    .schedule-grid-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: 0 4px 20px rgba(255, 110, 180, 0.06);
+    }
+
+    .schedule-grid {
+      display: grid;
+      grid-template-columns: 70px repeat(5, minmax(130px, 1fr));
+      min-width: 750px;
+    }
+
+    .grid-header {
+      background: var(--surface2);
+      padding: 0.6rem 0.4rem;
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .grid-header.corner { border-right: 1px solid var(--border); }
+    .grid-header:last-child { border-right: none; }
+
+    .time-label {
+      padding: 0 0.4rem;
+      font-size: 0.68rem;
+      color: var(--muted);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid rgba(90, 53, 80, 0.45);
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding-top: 2px;
+    }
+
+    .day-cell {
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid rgba(90, 53, 80, 0.4);
+      position: relative;
+      min-height: 28px;
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .day-cell:last-child { border-right: none; }
+
+    .event-block {
+      position: absolute;
+      left: 3px;
+      right: 3px;
+      border-radius: 5px;
+      padding: 3px 5px;
+      font-size: 0.68rem;
+      line-height: 1.25;
+      overflow: hidden;
+      border-left: 3px solid;
+      z-index: 1;
+      cursor: default;
+    }
+
+    .event-block .ev-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .event-block .ev-room { opacity: 0.85; font-size: 0.62rem; }
+
+    .conflict-banner {
+      background: rgba(255, 107, 138, 0.15);
+      border: 1px solid rgba(255, 107, 138, 0.45);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.88rem;
+      display: none;
+    }
+
+    .conflict-banner.show { display: block; }
+    .conflict-banner strong { color: var(--danger); }
+
+    .combinations-panel { margin-top: 0; }
+
+    .combo-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: flex-end;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .combo-filters .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .combo-filters label { font-size: 0.82rem; color: var(--muted); }
+
+    .combo-filters select {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.35rem 0.6rem;
+      font-size: 0.82rem;
+      min-width: 180px;
+    }
+
+    .combo-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-left: auto;
+    }
+
+    .combo-summary-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1rem;
+      font-size: 0.88rem;
+    }
+
+    .combo-summary-bar strong { color: var(--success); }
+
+    .combo-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+
+    .combo-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      min-width: 900px;
+    }
+
+    .combo-table thead th {
+      background: var(--surface2);
+      padding: 0.75rem 0.85rem;
+      text-align: left;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      border-bottom: 2px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      white-space: nowrap;
+    }
+
+    .combo-table thead th.col-num {
+      width: 52px;
+      text-align: center;
+    }
+
+    .combo-table tbody tr {
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+
+    .combo-table tbody tr:nth-child(even) { background: rgba(255, 110, 180, 0.04); }
+    .combo-table tbody tr:hover { background: var(--accent-glow); }
+    .combo-table tbody tr.active {
+      background: rgba(255, 158, 210, 0.15);
+      outline: 2px solid var(--success);
+      outline-offset: -2px;
+    }
+
+    .combo-table td {
+      padding: 0.85rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      line-height: 1.45;
+    }
+
+    .combo-table td.col-num {
+      text-align: center;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--accent);
+      vertical-align: middle;
+    }
+
+    .combo-cell .cell-sec {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .combo-cell .cell-days {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      margin-bottom: 0.25rem;
+    }
+
+    .combo-cell .cell-days.mth { background: var(--mth-bg); color: var(--mth); }
+    .combo-cell .cell-days.tf { background: var(--tf-bg); color: var(--tf); }
+
+    .combo-cell .cell-time { color: var(--text); font-size: 0.84rem; }
+    .combo-cell .cell-room { color: var(--muted); font-size: 0.8rem; margin-top: 0.15rem; }
+
+    .combo-blocks {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .combo-block {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--surface2);
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .combo-block:hover { border-color: var(--accent); }
+    .combo-block.active {
+      border-color: var(--success);
+      box-shadow: 0 0 0 1px var(--success), 0 4px 20px rgba(255, 110, 180, 0.2);
+    }
+
+    .combo-block-header {
+      background: var(--surface);
+      padding: 0.65rem 1rem;
+      font-weight: 700;
+      font-size: 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .combo-block-header .load-hint {
+      font-size: 0.75rem;
+      font-weight: 400;
+      color: var(--muted);
+    }
+
+    .combo-block-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .combo-block-table th {
+      text-align: left;
+      padding: 0.55rem 1rem;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      background: rgba(0, 0, 0, 0.15);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .combo-block-table td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid rgba(90, 53, 80, 0.45);
+    }
+
+    .combo-block-table tr:last-child td { border-bottom: none; }
+
+    .view-toggle {
+      display: flex;
+      gap: 0.25rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.2rem;
+    }
+
+    .view-toggle button {
+      border: none;
+      background: transparent;
+      padding: 0.35rem 0.7rem;
+      font-size: 0.78rem;
+    }
+
+    .view-toggle button.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+      color: #fff;
+      border-radius: 4px;
+    }
+
+    @media print {
+      body { background: #fff; color: #111; background-image: none; }
+      header {
+        position: static;
+        height: auto;
+        background: #fff;
+        box-shadow: none;
+      }
+      header h1 {
+        -webkit-text-fill-color: #111;
+        color: #111;
+      }
+      .sidebar { display: none !important; }
+      .content { margin-left: 0; margin-top: 0; }
+      .stats, .conflict-banner, .toolbar, .tabs,
+      .combo-filters, .combo-actions, .view-toggle, .load-hint,
+      .combinations-panel h2, .combo-summary-bar { display: none !important; }
+      main { display: block; }
+      .content { padding: 0; }
+      .panel { border: none; padding: 0; }
+      .combo-table-wrap { border: none; overflow: visible; }
+      .combo-table { min-width: 0; font-size: 9pt; }
+      .combo-table thead th { background: #eee; color: #333; position: static; }
+      .combo-table tbody tr { break-inside: avoid; }
+      .combo-table tbody tr:nth-child(even) { background: #f7f7f7; }
+      .combo-cell .cell-days.mth { background: #fce4ff; color: #9b30b0; }
+      .combo-cell .cell-days.tf { background: #ffe0f0; color: #c2185b; }
+      .combo-cell .cell-room { color: #555; }
+      .combo-block { break-inside: avoid; border: 1px solid #ccc; margin-bottom: 12px; }
+      .combo-block-header { background: #f0f0f0; color: #111; }
+      .combo-block-table th { background: #eee; color: #333; }
+      .combo-block-table td { color: #111; }
+      .print-title {
+        display: block !important;
+        margin-bottom: 1rem;
+        font-size: 16pt;
+        font-weight: 700;
+      }
+    }
+
+    .print-title { display: none; }
+
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.25rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0;
+      position: sticky;
+      top: calc(var(--header-h) + 52px);
+      z-index: 39;
+      background: var(--bg);
+      padding-top: 0.25rem;
+    }
+
+    .tab {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      padding: 0.5rem 1rem;
+      color: var(--muted);
+      margin-bottom: -1px;
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .legend span { display: flex; align-items: center; gap: 0.35rem; }
+    .legend .swatch { width: 12px; height: 12px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Course Schedule Planner</h1>
+    <p>Pick one section per subject, view your weekly grid, and browse all conflict-free combinations.</p>
+  </header>
+
+  <main>
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="content">
+      <div class="stats" id="stats"></div>
+
+      <div class="conflict-banner" id="conflictBanner"></div>
+
+      <div class="toolbar">
+        <button class="primary" id="btnFindCombos">Find All Valid Schedules</button>
+        <button id="btnClear">Clear Selection</button>
+        <button id="btnSelectAllSubjects">Select First Section of Each</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="calendar">Weekly Calendar</button>
+        <button class="tab" data-tab="combinations">Valid Combinations</button>
+        <button class="tab" data-tab="list">Section List</button>
+      </div>
+
+      <div class="tab-content active" id="tab-calendar">
+        <div class="legend" id="legend"></div>
+        <div class="schedule-grid-wrap">
+          <div class="schedule-grid" id="scheduleGrid"></div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-combinations">
+        <div class="panel combinations-panel">
+          <h2>Conflict-Free Schedule Combinations</h2>
+          <div class="print-title" id="printTitle">Valid Course Schedule Combinations</div>
+          <div class="combo-filters">
+            <div class="filter-group">
+              <label for="subjectFilter">Subjects to include</label>
+              <select id="subjectFilter" multiple size="6"></select>
+            </div>
+            <div class="filter-group">
+              <label for="viewMode">Display</label>
+              <div class="view-toggle" id="viewMode">
+                <button type="button" data-view="table" class="active">Table</button>
+                <button type="button" data-view="blocks">Cards</button>
+              </div>
+            </div>
+            <div class="combo-actions">
+              <button class="primary" id="btnGenerate">Generate</button>
+              <button id="btnDownloadPdf">Download PDF</button>
+              <button id="btnPrint">Print</button>
+            </div>
+          </div>
+          <div class="combo-summary-bar" id="comboHint">
+            Select subjects, then click <strong>Generate</strong> to list every conflict-free schedule.
+          </div>
+          <div id="comboOutput">
+            <div class="empty-state">Click "Find All Valid Schedules" or use Generate above.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-list">
+        <div class="panel" id="sectionListPanel"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+
+  <script>
+    const COURSES = [
+      { subject: "MGT 187", section: "C", days: "MTh", time: "10:00 - 11:30 AM", room: "DMCR LAB 2" },
+      { subject: "MGT 187", section: "K", days: "TF", time: "10:00 - 11:30 AM", room: "DMCR LAB 2" },
+      { subject: "MGT 199.1", section: "K", days: "TF", time: "10:00 - 11:30 AM", room: "DMCR 2" },
+      { subject: "MGT 199.1", section: "N", days: "TF", time: "2:30 - 4:00 PM", room: "DMCR 2" },
+      { subject: "ENTR 172", section: "F", days: "MTh", time: "2:30 - 4:00 PM", room: "DMCR LAB 2" },
+      { subject: "COMM 12", section: "B", days: "MTh", time: "8:30 - 10:00 PM", room: "DM 03" },
+      { subject: "SOCSCI 5", section: "B", days: "MTh", time: "8:30 - 10:00 AM", room: "DM 14" },
+      { subject: "SOCSCI 5", section: "C", days: "MTh", time: "10:30 - 11:00 AM", room: "R21" },
+      { subject: "SOCSCI 5", section: "C1", days: "MTh", time: "10:30 - 11:00 AM", room: "R23" },
+      { subject: "SOCSCI 5", section: "H", days: "TF", time: "7:00 - 8:30 AM", room: "R23" },
+      { subject: "SOCSCI 5", section: "J", days: "TF", time: "8:30 - 10:00 AM", room: "R23" },
+      { subject: "SOCSCI 5", section: "M", days: "TF", time: "1:00 - 2:30 PM", room: "R22" },
+      { subject: "PI 100", section: "G", days: "MTh", time: "4:00 - 5:30 PM", room: "R21" },
+      { subject: "PI 100", section: "G1", days: "MTh", time: "4:00 - 5:30 PM", room: "R23" },
+      { subject: "PI 100", section: "K", days: "TF", time: "10:00 - 11:30 AM", room: "DM 04" },
+      { subject: "PI 100", section: "L", days: "TF", time: "11:30 - 1:00 PM", room: "DM 14" },
+      { subject: "PI 100", section: "L1", days: "TF", time: "11:30 - 1:00 PM", room: "DM 13" },
+    ];
+
+    const COLORS = [
+      "#ff6eb4", "#d896ff", "#ff85c8", "#ffb86c", "#ff9ed2",
+      "#e884c9", "#c77dff", "#ffa6d4", "#f0a0d0", "#ff70a6"
+    ];
+
+    const DAY_MAP = {
+      MTh: ["Mon", "Thu"],
+      TF: ["Tue", "Fri"],
+      MW: ["Mon", "Wed"],
+      TTh: ["Tue", "Thu"],
+    };
+
+    const GRID_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    const START_HOUR = 7;
+    const END_HOUR = 22;
+    const SLOT_MINUTES = 30;
+    const PX_PER_SLOT = 28;
+
+    function parseTime(str) {
+      const m = str.trim().match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (!m) return null;
+      const toMin = (h, min, ap) => {
+        let hour = parseInt(h, 10);
+        const minutes = parseInt(min, 10);
+        const period = ap.toUpperCase();
+        if (period === "PM" && hour !== 12) hour += 12;
+        if (period === "AM" && hour === 12) hour = 0;
+        return hour * 60 + minutes;
+      };
+      return {
+        start: toMin(m[1], m[2], m[5]),
+        end: toMin(m[3], m[4], m[5]),
+        label: str,
+      };
+    }
+
+    function courseId(c) {
+      return `${c.subject}|${c.section}`;
+    }
+
+    function getSubjects() {
+      return [...new Set(COURSES.map(c => c.subject))];
+    }
+
+    function getSectionsBySubject() {
+      const map = {};
+      for (const c of COURSES) {
+        if (!map[c.subject]) map[c.subject] = [];
+        map[c.subject].push(c);
+      }
+      return map;
+    }
+
+    function expandCourseSlots(course) {
+      const parsed = parseTime(course.time);
+      if (!parsed) return [];
+      const days = DAY_MAP[course.days] || [];
+      return days.map(day => ({
+        ...course,
+        id: courseId(course),
+        day,
+        startMin: parsed.start,
+        endMin: parsed.end,
+        timeLabel: parsed.label,
+      }));
+    }
+
+    function slotsOverlap(a, b) {
+      return a.startMin < b.endMin && b.startMin < a.endMin;
+    }
+
+    function coursesConflict(c1, c2) {
+      const s1 = expandCourseSlots(c1);
+      const s2 = expandCourseSlots(c2);
+      for (const a of s1) {
+        for (const b of s2) {
+          if (a.day === b.day && slotsOverlap(a, b)) return true;
+        }
+      }
+      return false;
+    }
+
+    function getSelectedCourses() {
+      return COURSES.filter(c => state.selected.has(courseId(c)));
+    }
+
+    function findConflicts(selected) {
+      const conflicts = [];
+      for (let i = 0; i < selected.length; i++) {
+        for (let j = i + 1; j < selected.length; j++) {
+          if (coursesConflict(selected[i], selected[j])) {
+            conflicts.push([selected[i], selected[j]]);
+          }
+        }
+      }
+      return conflicts;
+    }
+
+    function hasMultiplePerSubject(selected) {
+      const counts = {};
+      for (const c of selected) {
+        counts[c.subject] = (counts[c.subject] || 0) + 1;
+      }
+      return Object.entries(counts).filter(([, n]) => n > 1);
+    }
+
+    function generateCombinations(subjects) {
+      const bySubject = getSectionsBySubject();
+      const sectionsPerSubject = subjects.map(s => bySubject[s] || []);
+      if (sectionsPerSubject.some(arr => arr.length === 0)) return [];
+
+      function recurse(idx, current) {
+        if (idx === sectionsPerSubject.length) {
+          const conflicts = findConflicts(current);
+          if (conflicts.length === 0) return [current.slice()];
+          return [];
+        }
+        const results = [];
+        for (const section of sectionsPerSubject[idx]) {
+          current.push(section);
+          results.push(...recurse(idx + 1, current));
+          current.pop();
+        }
+        return results;
+      }
+
+      return recurse(0, []);
+    }
+
+    const state = {
+      selected: new Set(),
+      subjectColors: {},
+      activeCombo: null,
+      lastCombos: [],
+      lastComboSubjects: [],
+      comboView: "table",
+    };
+
+    function initColors() {
+      getSubjects().forEach((s, i) => {
+        state.subjectColors[s] = COLORS[i % COLORS.length];
+      });
+    }
+
+    function formatMin(min) {
+      const h = Math.floor(min / 60);
+      const m = min % 60;
+      const period = h >= 12 ? "PM" : "AM";
+      const hour = h % 12 || 12;
+      return `${hour}:${String(m).padStart(2, "0")} ${period}`;
+    }
+
+    function renderSidebar() {
+      const bySubject = getSectionsBySubject();
+      const sidebar = document.getElementById("sidebar");
+      sidebar.innerHTML = '<div class="panel"><h2>Select Sections</h2></div>';
+
+      for (const [subject, sections] of Object.entries(bySubject)) {
+        const group = document.createElement("div");
+        group.className = "subject-group";
+        group.innerHTML = `
+          <div class="subject-header">
+            <span>${subject}</span>
+            <span class="count">${sections.length} section${sections.length > 1 ? "s" : ""}</span>
+          </div>
+        `;
+
+        for (const sec of sections) {
+          const id = courseId(sec);
+          const parsed = parseTime(sec.time);
+          const opt = document.createElement("label");
+          opt.className = "section-option";
+          opt.dataset.id = id;
+          opt.innerHTML = `
+            <input type="radio" name="subject-${subject.replace(/\s/g, "_")}" value="${id}">
+            <div class="section-info">
+              <div class="sec-label">Section ${sec.section}</div>
+              <div class="meta">
+                <span class="day-badge ${sec.days === "MTh" ? "mth" : "tf"}">${sec.days}</span>
+                ${sec.time} · ${sec.room}
+              </div>
+            </div>
+          `;
+          opt.querySelector("input").addEventListener("change", (e) => {
+            if (e.target.checked) {
+              for (const other of sections) {
+                state.selected.delete(courseId(other));
+              }
+              state.selected.add(id);
+              state.activeCombo = null;
+              render();
+            }
+          });
+          group.appendChild(opt);
+        }
+        sidebar.firstChild.appendChild(group);
+      }
+    }
+
+    function renderStats() {
+      const selected = getSelectedCourses();
+      const conflicts = findConflicts(selected);
+      const multi = hasMultiplePerSubject(selected);
+      const subjects = getSubjects();
+      const allCombos = generateCombinations(subjects);
+
+      document.getElementById("stats").innerHTML = `
+        <div class="stat"><div class="val">${selected.length}</div><div class="lbl">Selected</div></div>
+        <div class="stat ${conflicts.length ? "bad" : "ok"}"><div class="val">${conflicts.length}</div><div class="lbl">Conflicts</div></div>
+        <div class="stat ok"><div class="val">${allCombos.length}</div><div class="lbl">Valid Full Schedules</div></div>
+        <div class="stat"><div class="val">${COURSES.length}</div><div class="lbl">Total Sections</div></div>
+      `;
+    }
+
+    function renderConflictBanner() {
+      const selected = getSelectedCourses();
+      const conflicts = findConflicts(selected);
+      const multi = hasMultiplePerSubject(selected);
+      const banner = document.getElementById("conflictBanner");
+
+      const parts = [];
+      if (multi.length) {
+        parts.push(`Multiple sections selected for: <strong>${multi.map(([s]) => s).join(", ")}</strong> (pick only one per subject).`);
+      }
+      if (conflicts.length) {
+        const desc = conflicts.map(([a, b]) =>
+          `${a.subject} Sec ${a.section} ↔ ${b.subject} Sec ${b.section}`
+        ).join("; ");
+        parts.push(`Time conflicts: <strong>${desc}</strong>`);
+      }
+
+      if (parts.length) {
+        banner.className = "conflict-banner show";
+        banner.innerHTML = parts.join("<br>");
+      } else {
+        banner.className = "conflict-banner";
+        banner.innerHTML = "";
+      }
+    }
+
+    function renderLegend() {
+      const legend = document.getElementById("legend");
+      legend.innerHTML = getSubjects().map(s =>
+        `<span><span class="swatch" style="background:${state.subjectColors[s]}"></span>${s}</span>`
+      ).join("");
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById("scheduleGrid");
+      const totalSlots = ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES;
+      const gridHeight = totalSlots * PX_PER_SLOT;
+
+      grid.style.gridTemplateRows = `36px repeat(${totalSlots}, ${PX_PER_SLOT}px)`;
+      grid.innerHTML = "";
+
+      const corner = document.createElement("div");
+      corner.className = "grid-header corner";
+      grid.appendChild(corner);
+
+      for (const day of GRID_DAYS) {
+        const h = document.createElement("div");
+        h.className = "grid-header";
+        h.textContent = day;
+        grid.appendChild(h);
+      }
+
+      for (let i = 0; i < totalSlots; i++) {
+        const slotMin = START_HOUR * 60 + i * SLOT_MINUTES;
+        const timeLabel = document.createElement("div");
+        timeLabel.className = "time-label";
+        if (slotMin % 60 === 0) {
+          timeLabel.textContent = formatMin(slotMin);
+        }
+        grid.appendChild(timeLabel);
+
+        for (const day of GRID_DAYS) {
+          const cell = document.createElement("div");
+          cell.className = "day-cell";
+          cell.dataset.day = day;
+          cell.dataset.slot = i;
+          grid.appendChild(cell);
+        }
+      }
+
+      const selected = getSelectedCourses();
+      const conflicts = findConflicts(selected);
+      const conflictIds = new Set();
+      for (const [a, b] of conflicts) {
+        conflictIds.add(courseId(a));
+        conflictIds.add(courseId(b));
+      }
+
+      const dayColumns = {};
+      GRID_DAYS.forEach((d, i) => { dayColumns[d] = i; });
+
+      for (const course of selected) {
+        const slots = expandCourseSlots(course);
+        const color = state.subjectColors[course.subject];
+        const isConflict = conflictIds.has(courseId(course));
+
+        for (const slot of slots) {
+          const colIdx = dayColumns[slot.day];
+          if (colIdx === undefined) continue;
+
+          const startSlot = (slot.startMin - START_HOUR * 60) / SLOT_MINUTES;
+          const durationSlots = (slot.endMin - slot.startMin) / SLOT_MINUTES;
+
+          const cellIndex = 1 + (GRID_DAYS.length + 1) + startSlot * (GRID_DAYS.length + 1) + colIdx + 1;
+          const cells = grid.children;
+          const anchorCell = cells[cellIndex];
+          if (!anchorCell) continue;
+
+          const block = document.createElement("div");
+          block.className = "event-block";
+          block.style.top = "1px";
+          block.style.height = `${durationSlots * PX_PER_SLOT - 2}px`;
+          block.style.background = isConflict ? "rgba(255,107,138,0.35)" : `${color}33`;
+          block.style.borderLeftColor = isConflict ? "#ff6b8a" : color;
+          block.title = `${course.subject} Sec ${course.section}\n${slot.timeLabel}\n${course.room}`;
+          block.innerHTML = `
+            <div class="ev-title">${course.subject} (${course.section})</div>
+            <div class="ev-room">${course.room}</div>
+          `;
+          anchorCell.appendChild(block);
+        }
+      }
+
+      grid.style.minHeight = `${gridHeight + 36}px`;
+    }
+
+    function renderSectionList() {
+      const panel = document.getElementById("sectionListPanel");
+      panel.innerHTML = "<h2>All Sections</h2>";
+
+      const table = document.createElement("table");
+      table.style.cssText = "width:100%;border-collapse:collapse;font-size:0.85rem;margin-top:0.5rem;";
+      table.innerHTML = `
+        <thead>
+          <tr style="text-align:left;color:var(--muted);font-size:0.75rem;">
+            <th style="padding:0.5rem;border-bottom:1px solid var(--border)">Subject</th>
+            <th style="padding:0.5rem;border-bottom:1px solid var(--border)">Section</th>
+            <th style="padding:0.5rem;border-bottom:1px solid var(--border)">Days</th>
+            <th style="padding:0.5rem;border-bottom:1px solid var(--border)">Time</th>
+            <th style="padding:0.5rem;border-bottom:1px solid var(--border)">Room</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+
+      const tbody = table.querySelector("tbody");
+      for (const c of COURSES) {
+        const tr = document.createElement("tr");
+        tr.style.cursor = "pointer";
+        tr.innerHTML = `
+          <td style="padding:0.45rem 0.5rem;border-bottom:1px solid rgba(90,53,80,0.4)">${c.subject}</td>
+          <td style="padding:0.45rem 0.5rem;border-bottom:1px solid rgba(90,53,80,0.4)">${c.section}</td>
+          <td style="padding:0.45rem 0.5rem;border-bottom:1px solid rgba(90,53,80,0.4)">${c.days}</td>
+          <td style="padding:0.45rem 0.5rem;border-bottom:1px solid rgba(90,53,80,0.4)">${c.time}</td>
+          <td style="padding:0.45rem 0.5rem;border-bottom:1px solid rgba(90,53,80,0.4)">${c.room}</td>
+        `;
+        tr.addEventListener("click", () => selectSection(c));
+        tbody.appendChild(tr);
+      }
+      panel.appendChild(table);
+    }
+
+    function selectSection(course) {
+      const bySubject = getSectionsBySubject();
+      for (const other of bySubject[course.subject]) {
+        state.selected.delete(courseId(other));
+      }
+      state.selected.add(courseId(course));
+      state.activeCombo = null;
+      render();
+    }
+
+    function updateSidebarSelection() {
+      document.querySelectorAll(".section-option").forEach(opt => {
+        const id = opt.dataset.id;
+        const input = opt.querySelector("input");
+        const isSelected = state.selected.has(id);
+        input.checked = isSelected;
+        opt.classList.toggle("selected", isSelected);
+
+        const course = COURSES.find(c => courseId(c) === id);
+        const selected = getSelectedCourses();
+        const hasConflict = selected.some(other =>
+          course && other !== course && coursesConflict(course, other)
+        );
+        opt.classList.toggle("conflict", isSelected && hasConflict);
+      });
+    }
+
+    function comboKey(combo) {
+      return combo.map(c => courseId(c)).sort().join(";");
+    }
+
+    function courseBySubject(combo) {
+      const map = {};
+      for (const c of combo) map[c.subject] = c;
+      return map;
+    }
+
+    function renderComboCell(course) {
+      if (!course) return '<span style="color:var(--muted)">—</span>';
+      const dayClass = course.days === "MTh" ? "mth" : "tf";
+      return `
+        <div class="combo-cell">
+          <div class="cell-sec">Sec ${course.section}</div>
+          <div class="cell-days ${dayClass}">${course.days}</div>
+          <div class="cell-time">${course.time}</div>
+          <div class="cell-room">${course.room}</div>
+        </div>
+      `;
+    }
+
+    function loadCombo(combo) {
+      state.selected = new Set(combo.map(c => courseId(c)));
+      state.activeCombo = comboKey(combo);
+      render();
+      document.querySelector('[data-tab="calendar"]').click();
+    }
+
+    function renderCombosTable(combos, subjects) {
+      const wrap = document.createElement("div");
+      wrap.className = "combo-table-wrap";
+      const table = document.createElement("table");
+      table.className = "combo-table";
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th class="col-num">#</th>
+            ${subjects.map(s => `<th>${s}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector("tbody");
+
+      combos.forEach((combo, idx) => {
+        const bySubj = courseBySubject(combo);
+        const key = comboKey(combo);
+        const tr = document.createElement("tr");
+        if (state.activeCombo === key) tr.classList.add("active");
+        tr.innerHTML = `
+          <td class="col-num">${idx + 1}</td>
+          ${subjects.map(s => `<td>${renderComboCell(bySubj[s])}</td>`).join("")}
+        `;
+        tr.title = "Click to load this schedule on the calendar";
+        tr.addEventListener("click", () => loadCombo(combo));
+        tbody.appendChild(tr);
+      });
+
+      wrap.appendChild(table);
+      return wrap;
+    }
+
+    function renderCombosBlocks(combos) {
+      const container = document.createElement("div");
+      container.className = "combo-blocks";
+
+      combos.forEach((combo, idx) => {
+        const key = comboKey(combo);
+        const block = document.createElement("div");
+        block.className = "combo-block";
+        if (state.activeCombo === key) block.classList.add("active");
+
+        const sorted = [...combo].sort((a, b) => a.subject.localeCompare(b.subject));
+        block.innerHTML = `
+          <div class="combo-block-header">
+            <span>Schedule #${idx + 1}</span>
+            <span class="load-hint">Click to load on calendar</span>
+          </div>
+          <table class="combo-block-table">
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Section</th>
+                <th>Days</th>
+                <th>Time</th>
+                <th>Room</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sorted.map(c => `
+                <tr>
+                  <td><strong>${c.subject}</strong></td>
+                  <td>${c.section}</td>
+                  <td>${c.days}</td>
+                  <td>${c.time}</td>
+                  <td>${c.room}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+        block.addEventListener("click", () => loadCombo(combo));
+        container.appendChild(block);
+      });
+
+      return container;
+    }
+
+    function renderCombos(combos, subjects) {
+      state.lastCombos = combos;
+      state.lastComboSubjects = subjects;
+      const output = document.getElementById("comboOutput");
+      const hint = document.getElementById("comboHint");
+      const printTitle = document.getElementById("printTitle");
+
+      if (!combos.length) {
+        output.innerHTML = '<div class="empty-state">No conflict-free combinations found for the selected subjects.</div>';
+        hint.innerHTML = "No valid schedules for the current subject selection.";
+        printTitle.textContent = "Valid Course Schedule Combinations";
+        return;
+      }
+
+      printTitle.textContent = `Valid Course Schedule Combinations (${combos.length} total)`;
+      hint.innerHTML = `
+        Showing <strong>${combos.length}</strong> valid schedule${combos.length !== 1 ? "s" : ""}
+        across <strong>${subjects.length}</strong> subject${subjects.length !== 1 ? "s" : ""}.
+        Click any row or card to preview on the calendar, or use <strong>Download PDF</strong> / <strong>Print</strong>.
+      `;
+
+      output.innerHTML = "";
+      const view = state.comboView === "blocks"
+        ? renderCombosBlocks(combos)
+        : renderCombosTable(combos, subjects);
+      output.appendChild(view);
+    }
+
+    function downloadCombosPdf() {
+      if (!state.lastCombos.length) {
+        alert("Generate combinations first.");
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const subjects = state.lastComboSubjects;
+      const margin = 10;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = margin;
+
+      doc.setFontSize(16);
+      doc.setFont(undefined, "bold");
+      doc.text("Valid Course Schedule Combinations", margin, y);
+      y += 7;
+      doc.setFontSize(10);
+      doc.setFont(undefined, "normal");
+      doc.setTextColor(80);
+      doc.text(
+        `${state.lastCombos.length} conflict-free schedule(s) · ${subjects.join(", ")} · ${new Date().toLocaleDateString()}`,
+        margin,
+        y
+      );
+      y += 6;
+      doc.setTextColor(0);
+
+      const head = [["#", ...subjects]];
+      const body = state.lastCombos.map((combo, idx) => {
+        const bySubj = courseBySubject(combo);
+        return [
+          String(idx + 1),
+          ...subjects.map(s => {
+            const c = bySubj[s];
+            return c ? `Sec ${c.section}\n${c.days} ${c.time}\n${c.room}` : "—";
+          }),
+        ];
+      });
+
+      doc.autoTable({
+        startY: y,
+        head,
+        body,
+        margin: { left: margin, right: margin },
+        styles: {
+          fontSize: 8,
+          cellPadding: 2.5,
+          overflow: "linebreak",
+          valign: "top",
+        },
+        headStyles: {
+          fillColor: [122, 53, 84],
+          textColor: 255,
+          fontStyle: "bold",
+          fontSize: 8,
+        },
+        alternateRowStyles: { fillColor: [255, 240, 248] },
+        columnStyles: {
+          0: { cellWidth: 10, halign: "center", fontStyle: "bold" },
+        },
+        tableWidth: pageWidth - margin * 2,
+      });
+
+      doc.save(`schedule-combinations-${state.lastCombos.length}.pdf`);
+    }
+
+    function printCombos() {
+      if (!state.lastCombos.length) {
+        alert("Generate combinations first.");
+        return;
+      }
+      document.querySelector('[data-tab="combinations"]').click();
+      window.print();
+    }
+
+    function setCombosExpanded(expanded) {
+      document.querySelector("main").classList.toggle("combos-expanded", expanded);
+    }
+
+    function render() {
+      renderStats();
+      renderConflictBanner();
+      renderLegend();
+      renderGrid();
+      updateSidebarSelection();
+    }
+
+    function initSubjectFilter() {
+      const select = document.getElementById("subjectFilter");
+      for (const s of getSubjects()) {
+        const opt = document.createElement("option");
+        opt.value = s;
+        opt.textContent = s;
+        opt.selected = true;
+        select.appendChild(opt);
+      }
+    }
+
+    function getFilteredSubjects() {
+      const select = document.getElementById("subjectFilter");
+      return [...select.selectedOptions].map(o => o.value);
+    }
+
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(`tab-${tab.dataset.tab}`).classList.add("active");
+        setCombosExpanded(tab.dataset.tab === "combinations");
+        if (tab.dataset.tab === "combinations" && state.lastCombos.length) {
+          renderCombos(state.lastCombos, state.lastComboSubjects);
+        }
+      });
+    });
+
+    document.querySelectorAll("#viewMode button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#viewMode button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        state.comboView = btn.dataset.view;
+        if (state.lastCombos.length) {
+          renderCombos(state.lastCombos, state.lastComboSubjects);
+        }
+      });
+    });
+
+    document.getElementById("btnClear").addEventListener("click", () => {
+      state.selected.clear();
+      state.activeCombo = null;
+      render();
+    });
+
+    document.getElementById("btnSelectAllSubjects").addEventListener("click", () => {
+      state.selected.clear();
+      for (const sections of Object.values(getSectionsBySubject())) {
+        state.selected.add(courseId(sections[0]));
+      }
+      state.activeCombo = null;
+      render();
+    });
+
+    function showCombos() {
+      const subjects = getFilteredSubjects();
+      if (!subjects.length) {
+        alert("Select at least one subject.");
+        return;
+      }
+      const combos = generateCombinations(subjects);
+      renderCombos(combos, subjects);
+      setCombosExpanded(true);
+      document.querySelector('[data-tab="combinations"]').click();
+    }
+
+    document.getElementById("btnFindCombos").addEventListener("click", showCombos);
+    document.getElementById("btnGenerate").addEventListener("click", showCombos);
+    document.getElementById("btnDownloadPdf").addEventListener("click", downloadCombosPdf);
+    document.getElementById("btnPrint").addEventListener("click", printCombos);
+
+    initColors();
+    renderSidebar();
+    initSubjectFilter();
+    renderSectionList();
+    render();
+  </script>
+</body>
+</html>
